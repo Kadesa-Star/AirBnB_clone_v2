@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
+# Script that sets up web servers for the deployment of web_static
 
-# Update apt-get and install nginx
-apt-get update
-apt-get install -y nginx
+# Update package lists and install Nginx if not already installed
+sudo apt-get update
+sudo apt-get -y install nginx
 
-# Create necessary directories if they don't exist
-mkdir -p /data/web_static/releases/test/
-mkdir -p /data/web_static/shared/
+# Allow Nginx HTTP through the firewall
+sudo ufw allow 'Nginx HTTP'
 
-# Create the complete HTML file with the specified format
-cat <<EOF > /data/web_static/releases/test/index.html
+# Create necessary directories if they don't already exist
+sudo mkdir -p /data/web_static/releases/test/
+sudo mkdir -p /data/web_static/shared/
+
+# Create a fake HTML file with simple content to test Nginx configuration
+sudo tee /data/web_static/releases/test/index.html > /dev/null << EOF
 <html>
   <head>
   </head>
@@ -19,40 +23,17 @@ cat <<EOF > /data/web_static/releases/test/index.html
 </html>
 EOF
 
-# Create a symbolic link if it doesn't exist or recreate if it does
-if [ ! -e /data/web_static/current ]; then
-    ln -s /data/web_static/releases/test/ /data/web_static/current
-else
-    rm -rf /data/web_static/current
-    ln -s /data/web_static/releases/test/ /data/web_static/current
-fi
+# Create a symbolic link, forcefully if it exists
+sudo ln -sfn /data/web_static/releases/test/ /data/web_static/current
 
-# Change ownership of /data/ directory recursively to ubuntu user and group
-chown -R ubuntu:ubuntu /data/
+# Give ownership of /data/ to the ubuntu user and group recursively
+sudo chown -R ubuntu:ubuntu /data/
 
-# Configure nginx to serve the content
-printf %s "server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    add_header X-Served-By \$HOSTNAME;
-    root   /var/www/html;
-    index  index.html index.htm;
+# Remove any existing location block for /hbnb_static to avoid duplicates
+sudo sed -i '/location \/hbnb_static {/,/}/d' /etc/nginx/sites-available/default
 
-    location /hbnb_static {
-        alias /data/web_static/current;
-        index index.html index.htm;
-    }
+# Update Nginx configuration to serve the content
+sudo sed -i '/listen 80 default_server/a location /hbnb_static { alias /data/web_static/current/; }' /etc/nginx/sites-available/default
 
-    location /redirect_me {
-        return 301 http://cuberule.com/;
-    }
-
-    error_page 404 /404.html;
-    location /404 {
-      root /var/www/html;
-      internal;
-    }
-}" > /etc/nginx/sites-available/default
-
-# Restart nginx service
-service nginx restart
+# Test Nginx configuration and restart the service if the test is successful
+sudo nginx -t && sudo service nginx restart
