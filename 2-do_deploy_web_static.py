@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """
-Fabric script to deploy an archive to
-web servers based on the file 1-pack_web_static.py.
+Fabric script to deploy an archive to web
+servers based on the file 1-pack_web_static.py.
 """
 
 from fabric.api import put, run, env
@@ -21,8 +21,7 @@ def do_deploy(archive_path):
     Returns:
         bool: True if deployment was successful, False otherwise.
     """
-    # Check if the archive file exists
-    if exists(archive_path) is False:
+    if not exists(archive_path):
         return False
 
     try:
@@ -54,8 +53,8 @@ def do_deploy(archive_path):
         # Remove existing /data/web_static/current symbolic link
         run('rm -rf /data/web_static/current')
 
-        # Create new symbolic link /data/web_static
-        # /current linked to the new version
+        # Create new symbolic link /data/web_static/current
+        # linked to the new version
         run('ln -s {}{}/ /data/web_static/current'
             .format(release_path, no_extension))
 
