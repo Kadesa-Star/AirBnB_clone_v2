@@ -1,26 +1,22 @@
-#!/usr/bin/python3
-"""
-Fabric script to distribute an archive to web servers.
-"""
+from fabric import Connection, task
 
-import os
-from fabric import Connection
-
-# Define the host servers for deployment
-env_hosts = ['100.25.202.17', '34.207.62.126']  # Your server IPs
+env_hosts = ['100.25.202.17', '34.207.62.126']
 
 
-def do_deploy(archive_path):
+@task
+def do_deploy(ctx, archive_path):
     """
     Distributes an archive to the web servers and deploys it.
 
     Args:
+        ctx (Context): Fabric's context object.
         archive_path (str): Path to the archive file to deploy.
 
     Returns:
         bool: True if deployment was successful, False otherwise.
     """
     if not os.path.isfile(archive_path):
+        print("Archive path does not exist.")
         return False
 
     file_name = os.path.basename(archive_path)
@@ -29,7 +25,6 @@ def do_deploy(archive_path):
 
     for host in env_hosts:
         conn = Connection(host=host, user='ubuntu')
-        # Added user 'ubuntu'
         try:
             # Upload the archive to the /tmp/ directory on the server
             conn.put(archive_path, f"/tmp/{file_name}")
@@ -52,8 +47,8 @@ def do_deploy(archive_path):
             # Remove existing /data/web_static/current symbolic link
             conn.run("rm -rf /data/web_static/current")
 
-            # Create new symbolic link /data/web_static/current
-            # linked to the new version
+            # Create new symbolic link /data/web_static/
+            # currentlinked to the new version
             conn.run(f"ln -s {release_path} /data/web_static/current")
 
             print(f"New version deployed on {host}!")
