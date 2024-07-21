@@ -1,19 +1,18 @@
 #!/usr/bin/python3
-# Fabfile to distribute an archive to web servers.
+"""
+Fabric script to distribute an archive to web servers.
+"""
 
-import os.path
 from fabric import task, Connection
 from fabric.transfer import Transfer
-from datetime import datetime
+from os.path import exists
 
 env_hosts = ['100.25.202.17', '34.207.62.126']
 
 
-@task
 def do_deploy(ctx, archive_path):
     """
-    Distributes an archive to the web servers and deploys it.
-
+    Distributes an archive to the web servers.
     Args:
         ctx (Context): Fabric's context object.
         archive_path (str): Path to the archive file to deploy.
@@ -21,16 +20,21 @@ def do_deploy(ctx, archive_path):
     Returns:
         bool: True if deployment was successful, False otherwise.
     """
-    if not os.path.isfile(archive_path):
-        print("Archive path does not exist.")
+    if not exists(archive_path):
         return False
 
-    file_name = os.path.basename(archive_path)
-    name = file_name.split(".")[0]
-    release_path = f"/data/web_static/releases/{name}"
+    file_name = archive_path.split("/")[-1]
+    file_base = file_name.split(".")[0]
+    release_path = f"/data/web_static/releases/{file_base}"
 
     for host in env_hosts:
-        conn = Connection(host=host, user=ctx.user, connect_kwargs={"key_filename": ctx.key_filename})
+        conn = Connection(
+                host=host,
+                user=ctx.user,
+                connect_kwargs={
+                    "key_filename": ctx.key_filename
+                    }
+                )
         try:
             # Upload the archive to the /tmp/ directory on the server
             conn.put(archive_path, f"/tmp/{file_name}")
@@ -53,7 +57,8 @@ def do_deploy(ctx, archive_path):
             # Remove existing /data/web_static/current symbolic link
             conn.run("rm -rf /data/web_static/current")
 
-            # Create new symbolic link /data/web_static/curren
+            # Create new symbolic link /data/web_static/current
+            # linked to the new version
             conn.run(f"ln -s {release_path} /data/web_static/current")
 
             print(f"New version deployed on {host}!")
