@@ -1,62 +1,51 @@
 #!/usr/bin/python3
 """
-Fabric script to deploy an archive to web servers.
+Fabric script based on the file 1-pack_web_static.py that distributes an
+archive to the web servers
 """
 
-import os
-from fabric.api import env, put, run
+from fabric.api import put, run, env
+from os.path import exists
 
-# Define the host servers for deployment
+# Define the hosts (web servers)
 env.hosts = ['100.25.202.17', '34.207.62.126']
 
 
 def do_deploy(archive_path):
-    """
-    Distributes an archive to the web servers and deploys it.
-
-    Args:
-        archive_path (str): Path to the archive file to deploy.
-
-    Returns:
-        bool: True if deployment was successful, False otherwise.
-    """
-    if not os.path.isfile(archive_path):
+    """Distributes an archive to the web servers."""
+    if not exists(archive_path):
         return False
 
-    file_name = os.path.basename(archive_path)
-    name = file_name.split(".")[0]
-    release_path = f"/data/web_static/releases/{name}"
+    try:
+        # Extract the file name and name without extension
+        file_name = archive_path.split("/")[-1]
+        base_name = file_name.split(".")[0]
+        remote_path = "/data/web_static/releases/"
 
-    # Upload the archive to the /tmp/ directory on the server
-    if put(archive_path, f"/tmp/{file_name}").failed:
+        # Upload the archive to the /tmp/ directory
+        put(archive_path, '/tmp/')
+
+        # Create the release directory
+        release_dir = '{}{}/'.format(remote_path, base_name)
+        run('mkdir -p {}'.format(release_dir))
+
+        # Uncompress the archive
+        run('tar -xzf /tmp/{} -C {}'.format(file_name, release_dir))
+
+        # Remove the archive from the server
+        run('rm /tmp/{}'.format(file_name))
+
+        # Move files to the correct location
+        run('mv {0}{1}/web_static/* {0}{1}/'.format(remote_path, base_name))
+
+        # Remove old symlink and create a new one
+        run('rm -rf {}{}/web_static'.format(remote_path, base_name))
+        run('rm -rf /data/web_static/current')
+        run('ln -s {}{}/ /data/web_static/current'.format(
+            remote_path, base_name)
+            )
+
+        return True
+    except Exception as e:
+        print(f"Error: {e}")
         return False
-
-    # Create the directory for the new release
-    if run(f"mkdir -p {release_path}").failed:
-        return False
-
-    # Uncompress the archive into the new release directory
-    if run(f"tar -xzf /tmp/{file_name} -C {release_path}").failed:
-        return False
-
-    # Remove the uploaded archive from /tmp/
-    if run(f"rm /tmp/{file_name}").failed:
-        return False
-
-    # Move contents of the extracted folder to its parent directory
-    if run(f"mv {release_path}/web_static/* {release_path}/").failed:
-        return False
-
-    # Clean up by removing the now empty web_static folder
-    if run(f"rm -rf {release_path}/web_static").failed:
-        return False
-
-    # Remove existing /data/web_static/current symbolic link
-    if run("rm -rf /data/web_static/current").failed:
-        return False
-
-    # Create new symbolic link /data/web_static/current linked to the new version
-    if run(f"ln -s {release_path} /data/web_static/current").failed:
-        return False
-
-    return True
