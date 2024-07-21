@@ -1,4 +1,10 @@
-from fabric import Connection, task
+#!/usr/bin/python3
+# Fabfile to distribute an archive to web servers.
+
+import os.path
+from fabric import task, Connection
+from fabric.transfer import Transfer
+from datetime import datetime
 
 env_hosts = ['100.25.202.17', '34.207.62.126']
 
@@ -24,7 +30,7 @@ def do_deploy(ctx, archive_path):
     release_path = f"/data/web_static/releases/{name}"
 
     for host in env_hosts:
-        conn = Connection(host=host, user='ubuntu')
+        conn = Connection(host=host, user=ctx.user, connect_kwargs={"key_filename": ctx.key_filename})
         try:
             # Upload the archive to the /tmp/ directory on the server
             conn.put(archive_path, f"/tmp/{file_name}")
@@ -47,8 +53,7 @@ def do_deploy(ctx, archive_path):
             # Remove existing /data/web_static/current symbolic link
             conn.run("rm -rf /data/web_static/current")
 
-            # Create new symbolic link /data/web_static/
-            # currentlinked to the new version
+            # Create new symbolic link /data/web_static/curren
             conn.run(f"ln -s {release_path} /data/web_static/current")
 
             print(f"New version deployed on {host}!")
